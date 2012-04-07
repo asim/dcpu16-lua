@@ -147,53 +147,43 @@ function step(cpu)
   end   
 end
 
-function load(cpu, file)
-  local fp = io.input(file)
-  if fp == nil then
-    print("error reading file")
-    os.exit(1)
-  end 
+function load(cpu, filename)
+  local f = assert(io.open(filename, "rb"))
+  local n = 0
+
+  for line in f:lines() do
+    if not line then break end
+    bytes = tonumber(string.sub(line, 1, 4), 16)
+    if bytes then
+      cpu.mem[n] = bytes
+      n = n + 1
+    end
+    
+  end
+
+  f:close()
+end
+
+function mem_set(cpu)
+  cpu.mem = {
+    [0]=0x7c01,  [1]=0x0030,  [2]=0x7de1,  [3]=0x1000,  [4]=0x0020,  [5]=0x7803,  [6]=0x1000,  [7]=0xc00d, 
+    [8]=0x7dc1,  [9]=0x001a,  [10]=0xa861, [11]=0x7c01, [12]=0x2000, [13]=0x2161, [14]=0x2000, [15]=0x8463, 
+    [16]=0x806d, [17]=0x7dc1, [18]=0x000d, [19]=0x9031, [20]=0x7c10, [21]=0x0018, [22]=0x7dc1, [23]=0x001a, 
+    [24]=0x9037, [25]=0x61c1, [26]=0x7dc1, [27]=0xFFF0, [28]=0x0000, [29]=0x0000, [30]=0x0000, [31]=0x0000
+  }
 end
 
 function main()
   local dcpu = dcpu()
+  local filename = "out.hex"
 
-  --[[ load data
   if #arg >= 1 then
-    local filename = arg[1]
-  else
-    local filename = "out.hex"
+    filename = arg[1]
   end
 
-  load(cpu, filename)
-]]--
+  -- load(dcpu, filename)
 
-
-  dcpu.mem[0] = 0x7c01 
-  dcpu.mem[1] = 0x0030 
-  dcpu.mem[2] = 0x7de1
-  dcpu.mem[3] = 0x1000
-  dcpu.mem[4] = 0x0020
-
-  dcpu.mem[5] = 0x7803
-  dcpu.mem[6] = 0x1000
-
-  dcpu.mem[7] = 0xa861
-
-  dcpu.mem[8] = 0x7c01
-  dcpu.mem[9] = 0x2000
-
-  dcpu.mem[10] = 0x2161
-  dcpu.mem[11] = 0x2000
-
-  dcpu.mem[12] = 0x8463
-
-  dcpu.mem[13] = 0x806d
-
-  dcpu.mem[14] = 0x7dc1
-  dcpu.mem[15] = 0x001a
-
-  dcpu.mem[16] = 0x0000
+   mem_set(dcpu)
 
   dump_header() 
   while true do
