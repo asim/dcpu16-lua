@@ -42,7 +42,7 @@ function dis_op(pc, n, mem)
 end
 
 function disassemble(mem, pc)
-  local s = {}
+  local s = ""
   local st = ""
   local n = mem[pc]
   pc = pc + 1
@@ -52,22 +52,19 @@ function disassemble(mem, pc)
   local b = bit.brshift(n, 10)
   if op > 0 then
     pc,st  = dis_op(pc, a, mem)
-    table.insert(s, string.format("%s %s, ", opcode[op], st))
+    s = s .. string.format("%s %s, ", opcode[op], st)
     pc,st = dis_op(pc, b, mem)
-    table.insert(s, st)
-
-    return pc, table.concat(s, "")
+    s = s .. st
+    return pc, s 
   end
 
   if a == 1 then
-    pc, st = dis_op(pc, b, mem)
-    table.insert(s, string.format("JSR %s", st))
-
-    return pc, table.concat(s, "")
+    pc,st = dis_op(pc, b, mem)
+    s = s .. string.format("JSR %s", st)
+    return pc, s
   end
 
   pc,st = dis_op(pc, b, mem)
-  table.insert(s, string.format("UNK[%02x] %s", a, st))
-
-  return pc, table.concat(s, "")
+  s = s .. string.format("UNK[%02x] %s", a, st)
+  return pc, s 
 end
