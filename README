@@ -1,0 +1,8 @@
+This is my first attempt at understanding the inner workings of the dcpu16 cpu written by notch. 
+I barely understand cpu programming besides what I've read in textbooks and have basically copied 
+all this code from other rather intelligent people. However to actually assist in me understanding 
+what's going on I've opted to write this thing in lua since no one else has done so as of yet. I'm 
+using swetland's c implementation as a reference point. Lua is missing a lot of built in functions 
+that you would get in other languages such as bitwise operations and switch/case statements. 
+Nevertheless its been entirely amusing and a huge enjoyment to try make this work. It's still broken 
+but I hope soon will come to life. 
