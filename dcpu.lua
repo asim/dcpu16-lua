@@ -1,15 +1,17 @@
 require "bit"
+require "disassemble"
 
 function dump_header()
-  print(" PC   SP   OV  SKIP  A    B    C    D    E    F    G    H  ")
-  print("---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----")
+  print(" PC   SP   OV  SKIP  A    B    C    X    Y    Z    I    J   instruction")
+  print("---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -----------")
 end
 
 function dump_state(cpu)
-  print(string.format("%04x %04x %04x %s %04x %04x %04x %04x %04x %04x %04x %04x", 
+  local _,st = disassemble(cpu.mem, cpu.pc)
+  print(string.format("%04x %04x %04x %s %04x %04x %04x %04x %04x %04x %04x %04x %s", 
 	cpu.pc, cpu.sp, cpu.ov, tostring(cpu.skip), cpu.reg[0], cpu.reg[1], 
 	cpu.reg[2], cpu.reg[3], cpu.reg[4], cpu.reg[5], cpu.reg[6], 
-	cpu.reg[7]))
+	cpu.reg[7], st))
 end
 
 function dcpu()
@@ -23,6 +25,7 @@ function dcpu()
   cpu.ov = 0
   cpu.mem = {}
   cpu.reg = {}
+  cpu.st = {}
 
   for i=0,registers-1 do
     cpu.reg[i] = 0
@@ -38,9 +41,9 @@ end
 function get_op(cpu, code)
   if code < 0x08 then
     return cpu.reg[code]
-  elseif code >= 0x08 and code <= 0x0f then
+  elseif code < 0x10 then
     return cpu.mem[cpu.reg[bit.band(code, 7)]]
-  elseif code >= 0x14 and code <= 0x17 then
+  elseif code < 0x18 then
     local val = bit.band(cpu.reg[bit.band(code, 7)] + cpu.mem[cpu.pc], 0xFFFF)
     cpu.pc = cpu.pc + 1
     return cpu.mem[val]
@@ -60,33 +63,31 @@ function get_op(cpu, code)
   elseif code == 0x1d then
     return cpu.ov
   elseif code == 0x1e then
-    local val = cpu.pc
+    local val = cpu.mem[cpu.pc]
     cpu.pc = cpu.pc + 1
     return cpu.mem[val]
   elseif code == 0x1f then
+    local val = cpu.pc
     cpu.pc = cpu.pc + 1
-    return cpu.pc
+    return cpu.mem[val]
   else
     return code - 0x20
   end 
 end
 
 function step(cpu)
-  local res = 0
-  local op = cpu.mem[cpu.pc]
+  local dst, res, ma, mb, cop, op, opcode
+
+  op = cpu.mem[cpu.pc]
   cpu.pc = cpu.pc + 1
  
-  local opcode = bit.band(op, 0x0F)
-  local a = tonumber(bit.brshift(bit.band(op, 0x3F0), 4))
-  local b = tonumber(bit.brshift(bit.band(op, 0xFC00), 10))
-  
-  local ma = get_op(cpu, a)
-  local mb = get_op(cpu, b)
+  opcode = bit.band(op, 0x0F)
+  cop = bit.band(bit.brshift(op, 4), 0x3F)
 
   if opcode == 0 then
-    opcode = a
-    if opcode == 0x01 then -- JSR
-      ma = mb
+    if cop == 0x01 then
+      ma = get_op(cpu, bit.brshift(op, 10)) 
+
       if cpu.skip == true then
         cpu.skip = false
       else
@@ -102,10 +103,9 @@ function step(cpu)
     end
   end 
 
-  if cpu.skip == true then
-    cpu.skip = false
-    return
-  end
+  dst = cop
+  ma = get_op(cpu, dst)
+  mb = get_op(cpu, bit.brshift(op, 10))
 
   if opcode == 0x01 then -- SET
     res = mb
@@ -130,20 +130,34 @@ function step(cpu)
   elseif opcode == 0x0B then -- XOR
     res = bit.bxor(ma, mb)
   elseif opcode == 0x0C then -- IFE
-    cpu.skip = not (ma == mb)  
+    res = ma == mb  
   elseif opcode == 0x0D then -- IFN
-    cpu.skip = not (ma ~= mb)
+    res = ma ~= mb
   elseif opcode == 0x0E then -- IFG
-    cpu.skip = not (ma > mb) 
+    res = ma > mb 
   elseif opcode == 0x0F then -- IFB
-    cpu.skip = not (bit.band(ma, mb) ~= 0)
+    res = bit.band(ma, mb) ~= 0
   else
     print("illegal op")
     os.exit(1)
   end
+  
+  if cpu.skip == true then
+    cpu.skip = false
+    return
+  end
+ 
+ if opcode == 0x02 and opcode <= 0x08 then
+    cpu.ov = bit.brshift(res, 16)
+  elseif opcode == 0x01 or
+         opcode == 0x06 or
+         opcode == 0x09 or
+         opcode == 0x0A or
+         opcode == 0x0B then
 
-  if opcode == 0x02 and opcode <= 0x08 then
-    cpu.ov = tonumber(bit.brshift(res, 16))
+    if (dst < 0x1f) then cpu.reg[bit.band(dst, 7)] = res end
+  elseif opcode >= 0x0C and opcode <= 0x0F then
+    cpu.skip = res
   end   
 end
 
@@ -165,12 +179,38 @@ function load(cpu, filename)
 end
 
 function mem_set(cpu)
-  cpu.mem = {
-    [0]=0x7c01,  [1]=0x0030,  [2]=0x7de1,  [3]=0x1000,  [4]=0x0020,  [5]=0x7803,  [6]=0x1000,  [7]=0xc00d, 
-    [8]=0x7dc1,  [9]=0x001a,  [10]=0xa861, [11]=0x7c01, [12]=0x2000, [13]=0x2161, [14]=0x2000, [15]=0x8463, 
-    [16]=0x806d, [17]=0x7dc1, [18]=0x000d, [19]=0x9031, [20]=0x7c10, [21]=0x0018, [22]=0x7dc1, [23]=0x001a, 
-    [24]=0x9037, [25]=0x61c1, [26]=0x7dc1, [27]=0xFFF0, [28]=0x0000, [29]=0x0000, [30]=0x0000, [31]=0x0000
-  }
+  cpu.mem[0] = 0x7c01 
+  cpu.mem[1] = 0x0030 
+  cpu.mem[2] = 0x7de1 
+  cpu.mem[3] = 0x1000 
+  cpu.mem[4] = 0x0020 
+  cpu.mem[5] = 0x7803 
+  cpu.mem[6] = 0x1000 
+  cpu.mem[7] = 0xc00d 
+  cpu.mem[8] = 0x7dc1 
+  cpu.mem[9] = 0x001a 
+  cpu.mem[10] = 0xa861 
+  cpu.mem[11] = 0x7c01 
+  cpu.mem[12] = 0x2000 
+  cpu.mem[13] = 0x2161 
+  cpu.mem[14] = 0x2000 
+  cpu.mem[15] = 0x8463 
+  cpu.mem[16] = 0x806d 
+  cpu.mem[17] = 0x7dc1 
+  cpu.mem[18] = 0x000d 
+  cpu.mem[19] = 0x9031 
+  cpu.mem[20] = 0x7c10 
+  cpu.mem[21] = 0x0018 
+  cpu.mem[22] = 0x7dc1 
+  cpu.mem[23] = 0x001a 
+  cpu.mem[24] = 0x9037 
+  cpu.mem[25] = 0x61c1 
+  cpu.mem[26] = 0x7dc1 
+  cpu.mem[27] = 0xFFF0 
+  cpu.mem[28] = 0x0000 
+  cpu.mem[29] = 0x0000 
+  cpu.mem[30] = 0x0000 
+  cpu.mem[31] = 0x0000 
 end
 
 function main()
