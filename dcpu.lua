@@ -184,7 +184,7 @@ function step(cpu)
   elseif opcode == 0x04 then -- MUL
     res = ma * mb
   elseif opcode == 0x05 then -- DIV
-    if mb == 0 then res = 0 else res = ma / mb end 
+    if mb == 0 then res = 0 else res = math.floor(ma / mb) end 
   elseif opcode == 0x06 then -- MOD
     if mb == 0 then res = 0 else res = ma % mb end
   elseif opcode == 0x07 then -- SHL
