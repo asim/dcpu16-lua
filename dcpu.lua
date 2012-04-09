@@ -1,8 +1,7 @@
 require "bit"
 require "disassemble"
 
-DEBUG = true
-
+DEBUG = false
 
 function debug(msg)
   if DEBUG then 
@@ -18,10 +17,13 @@ end
 function dump_state(cpu)
   local _,st = disassemble(cpu.mem, cpu.pc)
   local sp = string.sub(string.format("%04x", cpu.sp), 1, 4)
-  print(string.format("%04x %s %04x %s %04x %04x %04x %04x %04x %04x %04x %04x %s", 
-	cpu.pc, sp, cpu.ov, tostring(cpu.skip), cpu.reg[0], cpu.reg[1], 
-	cpu.reg[2], cpu.reg[3], cpu.reg[4], cpu.reg[5], cpu.reg[6], 
-	cpu.reg[7], st))
+
+  print(
+    string.format("%04x %s %04x %s %04x %04x %04x %04x %04x %04x %04x %04x %s", 
+    cpu.pc, sp, cpu.ov, tostring(cpu.skip), cpu.reg[0], cpu.reg[1], 
+    cpu.reg[2], cpu.reg[3], cpu.reg[4], cpu.reg[5], cpu.reg[6], 
+    cpu.reg[7], st)
+  )
 end
 
 function dcpu()
@@ -32,7 +34,7 @@ function dcpu()
 
   cpu.skip = false
   cpu.pc = 0
-  cpu.sp = 0
+  cpu.sp = 0xFFFF
   cpu.ov = 0
   cpu.mem = {}
   cpu.reg = {}
@@ -165,10 +167,13 @@ function step(cpu)
   aloc, a = get_op(cpu, dst)
   bloc, b = get_op(cpu, bit.brshift(op, 10))
   
+  debug(string.format("aloc: %s a: %s", aloc, a))
+  debug(string.format("bloc: %s b: %s", bloc, b))
+
   ma = read(cpu, aloc, a) 
   mb = read(cpu, bloc, b)
 
-  debug(string.format("ma %s mb %s",ma, mb))
+  debug(string.format("ma %s mb %s", ma, mb))
 
   if opcode == 0x01 then -- SET
     res = mb
